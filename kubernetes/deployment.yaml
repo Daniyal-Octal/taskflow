@@ -18,3 +18,12 @@ spec:
           imagePullPolicy: Never
           ports:
             - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: taskflow-config
+          env:
+            - name: API_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: taskflow-secret
+                  key: API_SECRET_KEY
