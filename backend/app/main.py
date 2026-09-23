@@ -2,13 +2,14 @@ from fastapi import FastAPI, HTTPException, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
-
+from prometheus_fastapi_instrumentator import Instrumentator
 from app.database import engine, SessionLocal, Base
 from app import models
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="TaskFlow API")
+Instrumentator().instrument(app).expose(app)
 
 # --- Pydantic schemas (API input/output shape) ---
 class TaskCreate(BaseModel):
