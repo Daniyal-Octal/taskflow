@@ -21,6 +21,17 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4
 
+      - name: Scan code for vulnerable dependencies and leaked secrets
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: table
+          exit-code: '0'   # report only for now
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -47,9 +58,25 @@ jobs:
       id-token: write   # lets the job request GitHub's signed identity token
       contents: read
 
+    env:
+      REPO: 882166533223.dkr.ecr.us-east-1.amazonaws.com/taskflow
+
     steps:
       - name: Check out code
         uses: actions/checkout@v4
+
+      - name: Build image (once)
+        working-directory: backend
+        run: docker build --provenance=false --sbom=false -t taskflow:ci .
+
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: taskflow:ci
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: table
+          exit-code: '0'   # report only for now
 
       - name: Get AWS credentials (OIDC, no stored keys)
         uses: aws-actions/configure-aws-credentials@v4
@@ -60,10 +87,8 @@ jobs:
       - name: Log in to ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build and push image
-        working-directory: backend
+      - name: Tag and push
         run: |
-          REPO=882166533223.dkr.ecr.us-east-1.amazonaws.com/taskflow
           TAG="sha-${GITHUB_SHA::7}"
-          docker build --provenance=false --sbom=false -t $REPO:$TAG .
+          docker tag taskflow:ci $REPO:$TAG
           docker push $REPO:$TAG
